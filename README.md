@@ -4,7 +4,7 @@ Este proyecto corresponde al backend de **SyncNotes**, una plataforma colaborati
 El backend está desarrollado con **Spring Boot** y expone servicios REST, junto con comunicación en tiempo real mediante **WebSockets**.
 
 ## 🚀 Tecnologías Utilizadas
-- Java 17
+- Java 21
 - Spring Boot
 - Spring WebSocket
 - Spring Security + JWT

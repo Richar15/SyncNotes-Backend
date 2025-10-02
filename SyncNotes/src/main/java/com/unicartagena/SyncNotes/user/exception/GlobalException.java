@@ -7,7 +7,7 @@ public class GlobalException extends RuntimeException {
 
     public GlobalException(String message) {
         super(message);
-        this.status = HttpStatus.BAD_REQUEST; // valor por defecto
+        this.status = HttpStatus.BAD_REQUEST;
     }
 
     public GlobalException(String message, HttpStatus status) {
