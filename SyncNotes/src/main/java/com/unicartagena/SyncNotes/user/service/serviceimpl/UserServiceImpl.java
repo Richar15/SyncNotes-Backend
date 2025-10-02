@@ -30,11 +30,11 @@ public class UserServiceImpl implements UserService {
                     throw new GlobalException("El nombre de usuario ya existe, por favor ingrese otro.");
                 });
 
-        User user = mapper.toEntity(userDto);
+        User user = mapper.toUserEntity(userDto);
         user.setPassword(passwordEncoder.encode(userDto.getPassword()));
 
         User saved = userRepository.save(user);
-        return mapper.toDto(saved);
+        return mapper.toUserDto(saved);
     }
 
 @Override
@@ -56,7 +56,7 @@ public UserDto updateUser(String id, UserUpdateDto userUpdateDto) {
     }
     mapper.updateUserFromDto(userUpdateDto, existingUser);
     User updatedUser = userRepository.save(existingUser);
-    return mapper.toDto(updatedUser);
+    return mapper.toUserDto(updatedUser);
 }
 
 @Override
