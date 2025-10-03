@@ -164,6 +164,23 @@ public class RoomService {
         }
     }
 
+    public void deleteRoom(String roomId, String userId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new GlobalException("Sala no encontrada", HttpStatus.NOT_FOUND));
+
+        // Validar que solo el creador pueda eliminar la sala
+        if (!room.getCreatorId().equals(userId)) {
+            throw new GlobalException("Solo el creador de la sala puede eliminarla", HttpStatus.FORBIDDEN);
+        }
+
+        User user = userRepository.findById(userId).orElseThrow();
+
+        logChange(roomId, userId, user.getUsername(), "ELIMINAR_SALA", "Room",
+                  roomId, "Sala eliminada: " + room.getName());
+
+        roomRepository.delete(room);
+    }
+
     private void logChange(String roomId, String userId, String username, String action,
                           String entityType, String entityId, String description) {
         ChangeHistory history = new ChangeHistory();
