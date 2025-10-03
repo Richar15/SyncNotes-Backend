@@ -123,14 +123,17 @@ public class TaskService {
         Room room = roomRepository.findById(task.getRoomId())
                 .orElseThrow(() -> new GlobalException("Sala no encontrada", HttpStatus.NOT_FOUND));
 
-        roomService.validateUserCanEdit(room, userId);
+        // Validar que solo el creador de la tarea pueda eliminarla
+        if (!task.getCreatedBy().equals(userId)) {
+            throw new GlobalException("Solo el creador de la tarea puede eliminarla", HttpStatus.FORBIDDEN);
+        }
 
         User user = userRepository.findById(userId).orElseThrow();
 
-        taskRepository.delete(task);
-
         logChange(task.getRoomId(), userId, user.getUsername(), "ELIMINAR_TAREA", "Task",
                   taskId, "Tarea eliminada: " + task.getTitle());
+
+        taskRepository.delete(task);
     }
 
     private void logChange(String roomId, String userId, String username, String action,
