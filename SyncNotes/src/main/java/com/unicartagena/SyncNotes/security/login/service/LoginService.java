@@ -56,7 +56,7 @@ public class LoginService {
 
 
             if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-                response.put("error", "Usuario incorrecto");
+                response.put("error", "Contraseña Incorrecta");
                 return ResponseEntity.status(401).body(response);
             }
 
