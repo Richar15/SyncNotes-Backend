@@ -14,6 +14,12 @@
    - [Historial](#6-historial)
 6. [Códigos de Estado](#códigos-de-estado)
 7. [Ejemplos de Flujos Completos](#ejemplos-de-flujos-completos)
+8. [WebSocket](#7-websocket)
+9. [Límites y Paginación](#8-límites-y-paginación)
+10. [Validaciones](#9-validaciones)
+11. [Seguridad y Mejores Prácticas](#10-seguridad-y-mejores-prácticas)
+12. [SDKs y Ejemplos](#11-sdks-y-ejemplos)
+13. [Preguntas Frecuentes](#12-preguntas-frecuentes)
 
 ---
 
@@ -32,12 +38,12 @@
 ## URL Base
 
 ```
-http://localhost:8080/api
+http://localhost:8081/api
 ```
 
 ### Swagger UI (Documentación interactiva)
 ```
-http://localhost:8080/swagger-ui.html
+http://localhost:8081/swagger-ui.html
 ```
 
 ---
@@ -1049,34 +1055,355 @@ curl -X GET "http://localhost:8080/api/rooms/<roomId>/tasks?completed=true" \
 
 ---
 
-## 📝 Notas Finales
+## 7. WebSocket
 
-### Buenas Prácticas
+### 🔄 Conexión WebSocket
 
-1. **Siempre incluye el token JWT** en las peticiones autenticadas
-2. **Valida los datos** antes de enviarlos
-3. **Maneja los errores** apropiadamente en tu cliente
-4. **Guarda el token de forma segura** (localStorage en web, keychain en mobile)
-5. **Refresca el token** cuando sea necesario
-6. **No expongas el token** en URLs o logs
+**URL:** `ws://localhost:8081/ws`  
+**Protocolo:** STOMP sobre WebSocket
 
-### Testing con Postman
+### Autenticación WebSocket
+Para conectarte al WebSocket, debes incluir el token JWT como query parameter:
 
-Puedes importar esta API en Postman:
-1. Crea una nueva colección
-2. Configura una variable de entorno `baseUrl` = `http://localhost:8080/api`
-3. Configura una variable `token` para el JWT
-4. Usa `{{baseUrl}}` y `{{token}}` en tus requests
-
-### Swagger UI
-
-Para una documentación interactiva y probar los endpoints directamente:
 ```
-http://localhost:8080/swagger-ui.html
+ws://localhost:8081/ws?token=<tu_token_jwt>
+```
+
+### Topics de Suscripción
+
+1. **Mensajes de Sala**
+   ```
+   /topic/rooms/{roomId}/messages
+   ```
+
+2. **Actualizaciones de Tareas**
+   ```
+   /topic/rooms/{roomId}/tasks
+   ```
+
+3. **Notificaciones de Usuario**
+   ```
+   /topic/users/{userId}/notifications
+   ```
+
+### Envío de Mensajes
+
+Para enviar un mensaje a una sala:
+```json
+{
+  "destination": "/app/rooms/{roomId}/messages",
+  "body": {
+    "content": "¡Hola equipo!",
+    "type": "TEXT"
+  }
+}
 ```
 
 ---
 
-**Versión:** 1.0  
-**Última actualización:** Enero 2024  
-**Contacto:** Equipo de desarrollo SyncNotes
+## 8. Límites y Paginación
+
+### Paginación Estándar
+
+Todos los endpoints que retornan listas soportan paginación usando los siguientes parámetros:
+
+- `page` - Número de página (0-based)
+- `size` - Elementos por página
+- `sort` - Campo y dirección de ordenamiento
+
+**Ejemplo:**
+```http
+GET /api/rooms/123/tasks?page=0&size=10&sort=createdAt,desc
+```
+
+### Response con Paginación
+
+```json
+{
+  "content": [...],
+  "pageable": {
+    "pageNumber": 0,
+    "pageSize": 10,
+    "sort": {
+      "sorted": true,
+      "direction": "DESC"
+    }
+  },
+  "totalElements": 50,
+  "totalPages": 5,
+  "last": false,
+  "first": true
+}
+```
+
+### Límites por Defecto
+
+- Tareas por sala: 1000
+- Mensajes por sala: 10000
+- Miembros por sala: 50
+- Salas por usuario: 100
+
+---
+
+## 9. Validaciones
+
+### Usuarios
+- **name**: 3-50 caracteres, solo letras y espacios
+- **email**: Formato válido RFC 5322, máx 100 caracteres
+- **password**: 
+  - Mínimo 8 caracteres
+  - Al menos una mayúscula
+  - Al menos una minúscula
+  - Al menos un número
+  - Al menos un carácter especial
+  - No puede contener espacios
+
+### Salas
+- **name**: 3-100 caracteres, alfanumérico
+- **description**: Máx 500 caracteres
+- **isPublic**: boolean
+
+### Tareas
+- **title**: 3-200 caracteres
+- **description**: Máx 2000 caracteres
+- **priority**: Enum (HIGH, MEDIUM, LOW)
+- **dueDate**: Fecha ISO 8601, debe ser futura
+- **assignedTo**: Email válido de un miembro de la sala
+
+### Mensajes
+- **content**: 1-1000 caracteres
+- **type**: Enum (TEXT, SYSTEM)
+
+## 10. Seguridad y Mejores Prácticas
+
+### 🔒 Seguridad
+
+1. **Rate Limiting**
+   - 100 requests/minuto por IP
+   - 1000 requests/hora por usuario
+   - Los límites se aplican por separado a cada endpoint
+
+2. **Protección CSRF**
+   - Token CSRF requerido para métodos POST, PUT, DELETE
+   - Header: X-CSRF-TOKEN
+   - El token se obtiene del endpoint GET /api/csrf-token
+
+3. **Headers de Seguridad**
+```http
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Content-Security-Policy: default-src 'self'
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+```
+
+4. **Políticas de Token JWT**
+   - Expiración: 1 hora
+   - Refresh Token: 7 días
+   - Algoritmo: HS256
+   - Claims obligatorios: sub, iat, exp, roles
+   - Token revocable mediante lista negra
+
+### 🛡️ Mejores Prácticas
+
+1. **Manejo de Tokens**
+   ```javascript
+   // ❌ MAL: Almacenar en localStorage
+   localStorage.setItem('token', jwt);
+
+   // ✅ BIEN: Usar HttpOnly cookies
+   // El servidor debe configurar la cookie:
+   Set-Cookie: auth_token=xyz; HttpOnly; Secure; SameSite=Strict
+   ```
+
+2. **Gestión de Errores**
+   ```javascript
+   // ❌ MAL: Exponer detalles internos
+   {
+     "error": "Error en MySQL: tabla users no existe"
+   }
+
+   // ✅ BIEN: Mensaje genérico y código único
+   {
+     "error": "Error del servidor",
+     "code": "DB_001",
+     "requestId": "abc-123"
+   }
+   ```
+
+3. **Optimización**
+   - Usar compresión GZIP
+   - Implementar caché con ETags
+   - Minimizar payload JSON
+   - Usar conexiones persistentes
+   - Implementar batch operations
+
+## 11. SDKs y Ejemplos
+
+### JavaScript/TypeScript
+```typescript
+import { SyncNotesClient } from '@syncnotes/client';
+
+const client = new SyncNotesClient({
+  baseUrl: 'http://localhost:8081/api',
+  token: 'your-jwt-token'
+});
+
+// Crear sala
+const room = await client.rooms.create({
+  name: 'Nueva Sala',
+  description: 'Descripción',
+  isPublic: true
+});
+
+// Añadir tarea
+const task = await client.tasks.create(room.id, {
+  title: 'Nueva Tarea',
+  priority: 'HIGH'
+});
+
+// WebSocket
+client.connect().then(() => {
+  client.subscribe(`/topic/rooms/${room.id}/messages`, (message) => {
+    console.log('Nuevo mensaje:', message);
+  });
+});
+```
+
+### Python
+```python
+from syncnotes import SyncNotesClient
+
+client = SyncNotesClient(
+    base_url='http://localhost:8081/api',
+    token='your-jwt-token'
+)
+
+# Crear sala
+room = client.rooms.create(
+    name='Nueva Sala',
+    description='Descripción',
+    is_public=True
+)
+
+# Añadir tarea
+task = client.tasks.create(
+    room_id=room.id,
+    title='Nueva Tarea',
+    priority='HIGH'
+)
+
+# WebSocket
+client.connect()
+client.subscribe(f'/topic/rooms/{room.id}/messages', lambda msg: print(f'Nuevo mensaje: {msg}'))
+```
+
+### Java
+```java
+import com.syncnotes.client.SyncNotesClient;
+
+SyncNotesClient client = SyncNotesClient.builder()
+    .baseUrl("http://localhost:8081/api")
+    .token("your-jwt-token")
+    .build();
+
+// Crear sala
+Room room = client.rooms().create(new CreateRoomRequest()
+    .name("Nueva Sala")
+    .description("Descripción")
+    .isPublic(true));
+
+// Añadir tarea
+Task task = client.tasks().create(room.getId(), new CreateTaskRequest()
+    .title("Nueva Tarea")
+    .priority(Priority.HIGH));
+
+// WebSocket
+client.connect().thenAccept(session -> {
+    client.subscribe(String.format("/topic/rooms/%s/messages", room.getId()),
+        message -> System.out.println("Nuevo mensaje: " + message));
+});
+```
+
+### PHP
+```php
+use SyncNotes\Client\SyncNotesClient;
+
+$client = new SyncNotesClient([
+    'baseUrl' => 'http://localhost:8081/api',
+    'token' => 'your-jwt-token'
+]);
+
+// Crear sala
+$room = $client->rooms->create([
+    'name' => 'Nueva Sala',
+    'description' => 'Descripción',
+    'isPublic' => true
+]);
+
+// Añadir tarea
+$task = $client->tasks->create($room->id, [
+    'title' => 'Nueva Tarea',
+    'priority' => 'HIGH'
+]);
+
+// WebSocket
+$client->connect();
+$client->subscribe("/topic/rooms/{$room->id}/messages", 
+    function($message) {
+        echo "Nuevo mensaje: " . json_encode($message);
+    }
+);
+```
+
+## 12. Preguntas Frecuentes
+
+### 🤔 ¿Cómo manejo la reconexión del WebSocket?
+
+```javascript
+const client = new SyncNotesClient({
+  baseUrl: 'http://localhost:8081/api',
+  token: 'your-jwt-token',
+  websocket: {
+    reconnect: true,
+    maxRetries: 5,
+    retryDelay: 2000
+  }
+});
+```
+
+### 🔑 ¿Cómo actualizo el token cuando expira?
+
+```javascript
+client.onTokenExpired = async () => {
+  const newToken = await client.auth.refresh();
+  client.setToken(newToken);
+};
+```
+
+### 📡 ¿Cómo manejo la pérdida de conexión?
+
+```javascript
+client.onConnectionLost = async () => {
+  await client.syncOfflineChanges();
+};
+```
+
+### 🔄 ¿Cómo implemento caché en el cliente?
+
+```javascript
+const client = new SyncNotesClient({
+  cache: {
+    enabled: true,
+    maxAge: 3600,
+    invalidateOn: ['CREATE', 'UPDATE', 'DELETE']
+  }
+});
+```
+
+---
+
+**Versión:** 2.0  
+**Última actualización:** Octubre 2025  
+**Contacto:** Equipo de desarrollo SyncNotes  
+**GitHub:** https://github.com/syncnotes/backend

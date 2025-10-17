@@ -11,6 +11,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Service
 @RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
@@ -66,5 +69,27 @@ public void deleteUser(String id) {
 
     userRepository.delete(user);
 }
+@Override
+public Map<String, Object> findUserByUsername(String username) {
+    if (username == null || username.trim().isEmpty()) {
+        throw new GlobalException("El username no puede estar vacío");
+    }
 
+    Map<String, Object> response = new HashMap<>();
+
+    try {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new GlobalException("No se encontró ningún usuario con el username proporcionado."));
+
+        UserDto userDto = mapper.toUserDto(user);
+        response.put("usuario", userDto);
+        response.put("mensaje", "Usuario encontrado correctamente.");
+        return response;
+
+    } catch (GlobalException e) {
+        throw e;
+    } catch (Exception e) {
+        throw new GlobalException("Ocurrió un error al buscar el usuario.");
+    }
+}
 }
