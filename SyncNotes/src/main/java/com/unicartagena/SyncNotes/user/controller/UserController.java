@@ -43,4 +43,19 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
         }
     }
+    @GetMapping("/searchUser/{username}")
+    public ResponseEntity<Map<String, Object>> findUserByUsername(@PathVariable String username) {
+        try {
+            Map<String, Object> response = userService.findUserByUsername(username);
+            return ResponseEntity.ok(response);
+        } catch (GlobalException e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Ocurrió un error al buscar el usuario.");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
 }
