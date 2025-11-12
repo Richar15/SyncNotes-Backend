@@ -194,4 +194,23 @@ public class RoomService {
         history.setTimestamp(LocalDateTime.now());
         changeHistoryRepository.save(history);
     }
+    public List<User> getActiveUsers(String roomId, String requesterId) {
+
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new GlobalException("Sala no encontrada", HttpStatus.NOT_FOUND));
+
+        validateUserInRoom(room, requesterId);
+        List<String> memberIds = room.getMembers().stream()
+                .map(RoomMember::getUserId)
+                .collect(Collectors.toList());
+
+        List<User> activeUsers = userRepository.findAllById(memberIds);
+
+        if (activeUsers.isEmpty()) {
+            throw new GlobalException("No hay usuarios activos en esta sala", HttpStatus.NOT_FOUND);
+        }
+
+        return activeUsers;
+}
+    
 }

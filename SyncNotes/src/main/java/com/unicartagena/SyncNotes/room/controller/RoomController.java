@@ -63,4 +63,9 @@ public class RoomController {
         roomService.deleteRoom(roomId, user.getId());
         return ResponseEntity.noContent().build();
     }
+    @GetMapping("/{roomId}/active-users")
+    public ResponseEntity<List<User>> getActiveUsers(@PathVariable String roomId,
+                                                     @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(roomService.getActiveUsers(roomId, user.getId()));
+}
 }
